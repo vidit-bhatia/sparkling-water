@@ -95,6 +95,10 @@ class H2OConf(object):
         self._jconf.setClusterStartTimeout(timeout)
         return self
 
+    def set_h2o_node_log_level(self, level):
+        self._jconf.setH2ONodeLogLevel(level)
+        return self
+
 # getters
 
     def cluster_start_timeout(self):
@@ -136,8 +140,8 @@ class H2OConf(object):
     def flatfile_path(self):
         return self._get_option(self._jconf.flatFilePath())
 
-    def num_h2o_Workers(self):
-        return self._get_option(self._jconf.numH2OWorkers())
+    def num_spark_executor_hint(self):
+        return self._get_option(self._jconf.numSparkExecutorHint())
 
     def use_flatfile(self):
         return self._jconf.useFlatFile()
@@ -148,14 +152,11 @@ class H2OConf(object):
     def cloud_timeout(self):
         return self._jconf.cloudTimeout()
 
-    def drdd_mul_factor(self):
-        return self._jconf.drddMulFactor()
+    def spreadrdd_mul_factor(self):
+        return self._jconf.spreadRDDMulFactor()
 
-    def num_rdd_retries(self):
-        return self._jconf.numRddRetries()
-
-    def default_cloud_size(self):
-        return self._jconf.defaultCloudSize()
+    def spreadrdd_num_retries(self):
+        return self._jconf.spreadRDDNumRetries()
 
     def h2o_node_log_level(self):
         return self._jconf.h2oNodeLogLevel()
@@ -166,8 +167,8 @@ class H2OConf(object):
     def node_iced_dir(self):
         return self._get_option(self._jconf.nodeIcedDir())
 
-    def subseq_tries(self):
-        return self._jconf.subseqTries()
+    def spreadrdd_subseq_tries(self):
+        return self._jconf.spreadRDDSubseqTries()
 
     def backend_cluster_mode(self):
         return self._jconf.backendClusterMode()

@@ -64,7 +64,7 @@ trait ExternalBackendTestHelper {
   }
 
   def startCloud(cloudSize: Int, sparkConf: SparkConf, additionalCp: String*): Unit = {
-    startCloud(cloudSize, sparkConf.get(PROP_CLOUD_NAME._1), sparkConf.get(PROP_CLIENT_IP._1), additionalCp: _*)
+    startCloud(cloudSize, sparkConf.get(PROP_CLUSTER_NAME._1), sparkConf.get(PROP_CLIENT_IP._1), additionalCp: _*)
   }
 
   def stopCloud(): Unit = {

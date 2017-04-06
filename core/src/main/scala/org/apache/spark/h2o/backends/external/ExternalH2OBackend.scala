@@ -18,10 +18,10 @@
 package org.apache.spark.h2o.backends.external
 
 
-import java.io.{File, FileInputStream, IOException}
+import java.io.{File, FileInputStream}
 import java.util.Properties
 
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.h2o.backends.SparklingBackend
 import org.apache.spark.h2o.utils.NodeDesc
 import org.apache.spark.h2o.{H2OConf, H2OContext}
@@ -61,12 +61,13 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
       conf.YARNQueue.map("-Dmapreduce.job.queuename=" + _ ).getOrElse(""),
       s"-Dmapreduce.job.tags=${yarnAppTags}",
       "-nodes", conf.numOfExternalH2ONodes.get,
-      "-notify", conf.clusterInfoFile.get,
+      "-notify", conf.clusterConfigFile.get,
       "-J", "-md5skip",
       "-jobname", H2O_JOB_NAME.format(sparkAppId),
       "-mapperXmx", conf.mapperXmx,
       "-output", conf.HDFSOutputDir.get,
       "-timeout", conf.clusterStartTimeout.toString,
+      "-J", "-log_level", "-J", conf.h2oNodeLogLevel,
       "-disown"
     )
 
@@ -90,9 +91,19 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     logInfo(processOut.toString)
     logError(processErr.toString)
 
+    if(!new File(hc.getConf.clusterConfigFile.get).exists()){
+      throw new RuntimeException(
+            "Cluster notification file wasn't created. The possible causes are: \n" +
+            "   1) The timeout for clouding up is too small and H2O didn't cloud up. \n" +
+                "In that case please try to increase the timeout for starting the external as: \n" +
+                "Python: H2OConf(sc).set_cluster_start_timeout(timeout).... \n" +
+                "Scala:  new H2OConf(sc).setClusterStartTimeout(timeout).... \n" +
+            "   2) The file couldn't be created because of missing write rights."
+      )
+    }
 
     // get ip port
-    val clusterInfo = Source.fromFile(hc.getConf.clusterInfoFile.get).getLines
+    val clusterInfo = Source.fromFile(hc.getConf.clusterConfigFile.get).getLines
     val ipPort = clusterInfo.next()
     yarnAppId = Some(clusterInfo.next().replace("job", "application"))
     externalIP = Some(ipPort)
@@ -120,10 +131,10 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
           s", original message: ${e.getMessage}")
     }
     try {
-      new File(hc.getConf.clusterInfoFile.get).delete()
+      new File(hc.getConf.clusterConfigFile.get).delete()
     } catch {
       case e: Exception =>
-        logError(s"Error when deleting cluster info file at ${hc.getConf.clusterInfoFile.get}" +
+        logError(s"Error when deleting cluster info file at ${hc.getConf.clusterConfigFile.get}" +
           s", original message: ${e.getMessage}")
     }
   }
@@ -153,7 +164,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     H2OStarter.start(h2oClientArgs, false)
 
     if (hc.getConf.numOfExternalH2ONodes.isDefined) {
-      H2O.waitForCloudSize(hc.getConf.numOfExternalH2ONodes.get.toInt, hc.getConf.cloudTimeout)
+      H2O.waitForCloudSize(hc.getConf.numOfExternalH2ONodes.get.toInt, hc.getConf.clientCloudConnectTimeout)
     }
     // Register web API for client
     RestAPIManager(hc).registerAll()
@@ -236,7 +247,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
         conf.setHDFSOutputDir(conf.cloudName.get)
       }
 
-      if(conf.clusterInfoFile.isEmpty){
+      if(conf.clusterConfigFile.isEmpty){
         conf.setClusterConfigFile("notify_" + conf.cloudName.get)
       }
 
