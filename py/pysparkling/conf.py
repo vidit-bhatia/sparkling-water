@@ -91,7 +91,14 @@ class H2OConf(object):
         self._jconf.useManualClusterStart()
         return self
 
+    def set_cluster_start_timeout(self, timeout):
+        self._jconf.setClusterStartTimeout(timeout)
+        return self
+
 # getters
+
+    def cluster_start_timeout(self):
+        return self._jconf.clusterStartTimeout()
 
     def h2o_cluster(self):
         return self._get_option(self._jconf.h2oCluster)
