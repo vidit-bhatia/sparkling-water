@@ -27,7 +27,7 @@ trait ScriptsTestHelper extends FunSuiteWithLogging with BeforeAndAfterAll with 
 
   override protected def beforeAll(): Unit = {
     val cloudName = uniqueCloudName("scripts-tests")
-    sparkConf.set(PROP_CLOUD_NAME._1, cloudName)
+    sparkConf.set(PROP_CLUSTER_NAME._1, cloudName)
     sparkConf.set(PROP_CLIENT_IP._1, sys.props.getOrElse("H2O_CLIENT_IP", NetworkInit.findInetAddressForSelf().getHostAddress))
 
 

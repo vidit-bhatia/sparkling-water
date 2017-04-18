@@ -71,7 +71,7 @@ trait IntegTestHelper extends BeforeAndAfterEach with BackendIndependentTestHelp
     super.beforeEach()
     testEnv = new TestEnvironment
     val cloudName = uniqueCloudName("integ-tests")
-    testEnv.sparkConf += SharedBackendConf.PROP_CLOUD_NAME._1 -> cloudName
+    testEnv.sparkConf += SharedBackendConf.PROP_CLUSTER_NAME._1 -> cloudName
 
     testEnv.sparkConf += SharedBackendConf.PROP_CLIENT_IP._1 ->
       sys.props.getOrElse("H2O_CLIENT_IP", NetworkInit.findInetAddressForSelf().getHostAddress)

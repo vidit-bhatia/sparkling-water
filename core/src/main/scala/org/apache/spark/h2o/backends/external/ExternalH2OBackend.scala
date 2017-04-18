@@ -58,16 +58,16 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     val yarnAppTags = s"${TAG_EXTERNAL_H2O},${TAG_SPARK_APP.format(sparkAppId)}"
     
     cmdToLaunch = cmdToLaunch ++ Seq[String](
-      conf.YARNQueue.map("-Dmapreduce.job.queuename=" + _ ).getOrElse(""),
+      conf.h2oYARNQueue.map("-Dmapreduce.job.queuename=" + _ ).getOrElse(""),
       s"-Dmapreduce.job.tags=${yarnAppTags}",
-      "-nodes", conf.numOfExternalH2ONodes.get,
-      "-notify", conf.clusterInfoFile.get,
+      "-nodes", conf.h2oExternalNodesCount.get,
+      "-notify", conf.h2oClusterNotifyFile.get,
       "-J", "-md5skip",
       "-jobname", H2O_JOB_NAME.format(sparkAppId),
-      "-mapperXmx", conf.mapperXmx,
-      "-output", conf.HDFSOutputDir.get,
+      "-mapperXmx", conf.h2oMapperXmx,
+      "-output", conf.h2oHDFSOutputDir.get,
       "-J", "-log_level", "-J", conf.h2oNodeLogLevel,
-      "-timeout", conf.clusterStartTimeout.toString,
+      "-timeout", conf.h2oClusterStartTimeout.toString,
       "-disown",
       "-J", "-watchdog_stop_without_client",
       "-J", "-watchdog_client_connect_timeout", "-J", conf.clientConnectionTimeout.toString,
@@ -95,7 +95,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     logError(processErr.toString)
 
 
-    if(!new File(hc.getConf.clusterInfoFile.get).exists()){
+    if(!new File(hc.getConf.h2oClusterNotifyFile.get).exists()){
       throw new RuntimeException(
             "Cluster notification file wasn't created. The possible causes are: \n" +
             "   1) The timeout for clouding up is too small and H2O didn't cloud up. \n" +
@@ -106,7 +106,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
       )
     }
     // get ip port
-    val clusterInfo = Source.fromFile(hc.getConf.clusterInfoFile.get).getLines
+    val clusterInfo = Source.fromFile(hc.getConf.h2oClusterNotifyFile.get).getLines
     val ipPort = clusterInfo.next()
     yarnAppId = Some(clusterInfo.next().replace("job", "application"))
     externalIP = Some(ipPort)
@@ -121,23 +121,23 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
   private def deleteYarnFiles(): Unit = {
     try {
       val hdfs = org.apache.hadoop.fs.FileSystem.get(hc.sparkContext.hadoopConfiguration)
-      hdfs.delete(new Path(hc.getConf.HDFSOutputDir.get), true)
+      hdfs.delete(new Path(hc.getConf.h2oHDFSOutputDir.get), true)
     }catch {
       case e: Exception =>
-        logError(s"Error when deleting HDFS output dir at ${hc.getConf.HDFSOutputDir.get}" +
+        logError(s"Error when deleting HDFS output dir at ${hc.getConf.h2oHDFSOutputDir.get}" +
           s", original message: ${e.getMessage}")
     }
     try {
-      new File(hc.getConf.clusterInfoFile.get).delete()
+      new File(hc.getConf.h2oClusterNotifyFile.get).delete()
     } catch {
       case e: Exception =>
-        logError(s"Error when deleting cluster info file at ${hc.getConf.clusterInfoFile.get}" +
+        logError(s"Error when deleting cluster info file at ${hc.getConf.h2oClusterNotifyFile.get}" +
           s", original message: ${e.getMessage}")
     }
   }
 
   override def init(): Array[NodeDesc] = {
-    if (hc.getConf.isAutoClusterStartUsed) {
+    if (hc.getConf.isAutoH2OClusterStartEnabled) {
       // start h2o instances on yarn
       logInfo("Starting H2O cluster on YARN")
       val ipPort = launchH2OOnYarn(hc.sparkContext.applicationId, hc.getConf)
@@ -146,7 +146,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     // Start H2O in client mode and connect to existing H2O Cluster
     logTrace("Starting H2O on client mode and connecting it to existing h2o cluster")
 
-    val h2oClientArgs = if(hc.getConf.isAutoClusterStartUsed){
+    val h2oClientArgs = if(hc.getConf.isAutoH2OClusterStartEnabled){
       getH2OClientArgs(hc.getConf) ++ Array("-watchdog_client")
     }else{
       getH2OClientArgs(hc.getConf)
@@ -154,8 +154,8 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     logDebug(s"Arguments used for launching h2o client node: ${h2oClientArgs.mkString(" ")}")
     H2OStarter.start(h2oClientArgs, false)
 
-    if (hc.getConf.numOfExternalH2ONodes.isDefined) {
-      H2O.waitForCloudSize(hc.getConf.numOfExternalH2ONodes.get.toInt, hc.getConf.cloudTimeout)
+    if (hc.getConf.h2oExternalNodesCount.isDefined) {
+      H2O.waitForCloudSize(hc.getConf.h2oExternalNodesCount.get.toInt, hc.getConf.clientCloudConnectTimeout)
     }
     // Register web API for client
     RestAPIManager(hc).registerAll()
@@ -197,7 +197,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
   override def stop(stopSparkContext: Boolean): Unit = {
     // stop only external h2o cluster running on yarn
     // otherwise stopping is not supported
-    if(hc.getConf.isAutoClusterStartUsed){
+    if(hc.getConf.isAutoH2OClusterStartEnabled){
       deleteYarnFiles()
     }
     if (stopSparkContext) {
@@ -210,7 +210,7 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
     super.checkAndUpdateConf(conf)
 
 
-    if(conf.isAutoClusterStartUsed) {
+    if(conf.isAutoH2OClusterStartEnabled) {
       lazy val driverPath = sys.env.get("H2O_EXTENDED_JAR")
       if(conf.h2oDriverPath.isEmpty && driverPath.isEmpty){
         throw new IllegalArgumentException(
@@ -227,15 +227,15 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
         conf.setCloudName("sparkling-water-" + System.getProperty("user.name", "cluster") + "_" + Math.abs(Random.nextInt()))
       }
 
-      if (conf.numOfExternalH2ONodes.isEmpty) {
+      if (conf.h2oExternalNodesCount.isEmpty) {
         throw new IllegalArgumentException("Number of h2o nodes has to be specified in external auto start backend mode.")
       }
 
-      if (conf.HDFSOutputDir.isEmpty) {
+      if (conf.h2oHDFSOutputDir.isEmpty) {
         conf.setHDFSOutputDir(conf.cloudName.get)
       }
 
-      if(conf.clusterInfoFile.isEmpty){
+      if(conf.h2oClusterNotifyFile.isEmpty){
         conf.setClusterConfigFile("notify_" + conf.cloudName.get)
       }
 

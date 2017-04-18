@@ -36,11 +36,11 @@ class SpreadRDDBuilder(hc: H2OContext,
                        numExecutorHint: Option[Int] = None) extends SharedBackendUtils {
   private val conf = hc.getConf
   private val sc = hc.sparkContext
-  private val numExecutors = conf.numH2OWorkers
+  private val numExecutors = conf.numSparkExecutorHint
 
   def build(): (RDD[NodeDesc], Array[NodeDesc]) = {
     logDebug(s"Building SpreadRDD: numExecutors=${numExecutors}, numExecutorHint=${numExecutorHint}")
-    build(conf.numRddRetries, conf.drddMulFactor, 0)
+    build(conf.spreadRDDNumRetries, conf.discoveryRDDMulFactor, 0)
   }
 
   @tailrec
@@ -54,7 +54,15 @@ class SpreadRDDBuilder(hc: H2OContext,
     // number of visible nodes again
     val nSparkExecBefore = numOfSparkExecutors
     // Number of expected workers
-    val expectedWorkers = numExecutors.orElse(numExecutorHint).getOrElse(if (nSparkExecBefore > 0) nSparkExecBefore else conf.defaultCloudSize)
+    val expectedWorkers: Int = numExecutors.orElse(numExecutorHint)
+      .getOrElse(
+        if (nSparkExecBefore > 0){
+          nSparkExecBefore
+        } else{
+          throw new RuntimeException("Number of expectected spark executors can't be determined!")
+        }
+      )
+
     // Create some distributed data
     val spreadRDD = sc.parallelize(0 until mfactor*expectedWorkers, mfactor*expectedWorkers + 1).persist()
     // Collect information about executors in Spark cluster

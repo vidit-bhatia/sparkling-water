@@ -60,12 +60,12 @@ class H2OConfTestSuite extends FunSuite
 
     // Test passed values
     assert(!conf.useFlatFile)
-    assert(conf.numH2OWorkers == Some(42))
+    assert(conf.numSparkExecutorHint == Some(42))
     assert(conf.clientBasePort == 1267)
     assert(conf.nodeBasePort == 32333)
     assert(conf.clientIp == Some("10.0.0.100"))
-    assert(conf.cloudTimeout == 10*1000)
-    assert(conf.numRddRetries == 2)
+    assert(conf.clientCloudConnectTimeout == 10*1000)
+    assert(conf.spreadRDDNumRetries == 2)
     assert(conf.cloudName.isDefined)
     assert(conf.cloudName == Some("test-sparkling-cloud-"))
     assert(conf.h2oNodeLogLevel == "DEBUG")
@@ -75,7 +75,7 @@ class H2OConfTestSuite extends FunSuite
     assert(conf.nthreads == 7)
     assert(conf.disableGA)
     assert(conf.clientWebPort == 13321)
-    assert(conf.drddMulFactor == 2)
+    assert(conf.discoveryRDDMulFactor == 2)
 
     resetContext()
   }

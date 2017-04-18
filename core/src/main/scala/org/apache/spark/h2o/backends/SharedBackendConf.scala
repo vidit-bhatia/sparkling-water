@@ -28,18 +28,26 @@ trait SharedBackendConf {
   import SharedBackendConf._
 
   def backendClusterMode = sparkConf.get(PROP_BACKEND_CLUSTER_MODE._1, PROP_BACKEND_CLUSTER_MODE._2)
+  def runsInExternalClusterMode: Boolean = backendClusterMode.toLowerCase() == "external"
+  def runsInInternalClusterMode: Boolean = !runsInExternalClusterMode
 
-  def clientIp      = sparkConf.getOption(PROP_CLIENT_IP._1)
-  def clientVerboseOutput = sparkConf.getBoolean(PROP_CLIENT_VERBOSE._1, PROP_CLIENT_VERBOSE._2)
-  def clientBasePort = sparkConf.getInt(PROP_CLIENT_PORT_BASE._1, PROP_CLIENT_PORT_BASE._2)
-  def cloudName     = sparkConf.getOption(PROP_CLOUD_NAME._1)
-  def h2oClientLogLevel = sparkConf.get(PROP_CLIENT_LOG_LEVEL._1, PROP_CLIENT_LOG_LEVEL._2)
-  def h2oClientLogDir = sparkConf.get(PROP_CLIENT_LOG_DIR._1, PROP_CLIENT_LOG_DIR._2)
-  def clientNetworkMask = sparkConf.getOption(PROP_CLIENT_NETWORK_MASK._1)
+  def clusterName = sparkConf.getOption(PROP_CLUSTER_NAME._1)
+
+
   def nthreads      = sparkConf.getInt(PROP_NTHREADS._1, PROP_NTHREADS._2)
   def disableGA     = sparkConf.getBoolean(PROP_DISABLE_GA._1, PROP_DISABLE_GA._2)
+  def nodeLogLevel = sparkConf.get(PROP_NODE_LOG_LEVEL._1, PROP_NODE_LOG_LEVEL._2)
+  def nodeLogDir = sparkConf.getOption(PROP_NODE_LOG_DIR._1)
+
   def clientWebPort = sparkConf.getInt(PROP_CLIENT_WEB_PORT._1, PROP_CLIENT_WEB_PORT._2)
   def clientIcedDir = sparkConf.getOption(PROP_CLIENT_ICED_DIR._1)
+  def clientCloudConnectTimeout  = sparkConf.getInt(PROP_CLIENT_CLOUD_CONNECT_TIMEOUT._1, PROP_CLIENT_CLOUD_CONNECT_TIMEOUT._2)
+  def clientNetworkMask = sparkConf.getOption(PROP_CLIENT_NETWORK_MASK._1)
+  def clientIp      = sparkConf.getOption(PROP_CLIENT_IP._1)
+  def clientVerboseOutput = sparkConf.getBoolean(PROP_CLIENT_VERBOSE._1, PROP_CLIENT_VERBOSE._2)
+  def clientBasePort = sparkConf.getInt(PROP_CLIENT_BASE_PORT._1, PROP_CLIENT_BASE_PORT._2)
+  def clientLogLevel = sparkConf.get(PROP_CLIENT_LOG_LEVEL._1, PROP_CLIENT_LOG_LEVEL._2)
+  def clientLogDir = sparkConf.get(PROP_CLIENT_LOG_DIR._1, PROP_CLIENT_LOG_DIR._2)
 
   def jks           = sparkConf.getOption(PROP_JKS._1)
   def jksPass       = sparkConf.getOption(PROP_JKS_PASS._1)
@@ -48,38 +56,154 @@ trait SharedBackendConf {
   def kerberosLogin = sparkConf.getBoolean(PROP_KERBEROS_LOGIN._1, PROP_KERBEROS_LOGIN._2)
   def loginConf     = sparkConf.getOption(PROP_LOGIN_CONF._1)
   def userName      = sparkConf.getOption(PROP_USER_NAME._1)
-
   def sslConf       = sparkConf.getOption(PROP_SSL_CONF._1)
 
   def isFailOnUnsupportedSparkParamEnabled = sparkConf.getBoolean(PROP_FAIL_ON_UNSUPPORTED_SPARK_PARAM._1, PROP_FAIL_ON_UNSUPPORTED_SPARK_PARAM._2)
-  def scalaIntDefaultNum = sparkConf.getInt(PROP_SCALA_INT_DEFAULT_NUM._1, PROP_SCALA_INT_DEFAULT_NUM._2)
-  def isH2OReplEnabled = sparkConf.getBoolean(PROP_REPL_ENABLED._1, PROP_REPL_ENABLED._2)
+  def replInitialInstancesCount = sparkConf.getInt(PROP_REPL_INITIAL_INSTANCES_COUNT._1, PROP_REPL_INITIAL_INSTANCES_COUNT._2)
+  def isReplEnabled =  sparkConf.getBoolean(PROP_REPL_ENABLED._1, PROP_REPL_ENABLED._2)
   def isClusterTopologyListenerEnabled = sparkConf.getBoolean(PROP_CLUSTER_TOPOLOGY_LISTENER_ENABLED._1, PROP_CLUSTER_TOPOLOGY_LISTENER_ENABLED._2)
-
   def isSparkVersionCheckEnabled = sparkConf.getBoolean(PROP_SPARK_VERSION_CHECK_ENABLED._1, PROP_SPARK_VERSION_CHECK_ENABLED._2)
 
-  def runsInExternalClusterMode: Boolean = backendClusterMode.toLowerCase() == "external"
-  def runsInInternalClusterMode: Boolean = !runsInExternalClusterMode
 
-  def h2oNodeLogLevel   = sparkConf.get(PROP_NODE_LOG_LEVEL._1, PROP_NODE_LOG_LEVEL._2)
-  def h2oNodeLogDir   = sparkConf.getOption(PROP_NODE_LOG_DIR._1)
-
-  def setH2ONodeLogLevel(level: String): H2OConf = {
-    sparkConf.set(PROP_NODE_LOG_LEVEL._1, level)
+  def setInternalClusterMode(): H2OConf = {
+    sparkConf.set(PROP_BACKEND_CLUSTER_MODE._1, "internal")
     self
   }
 
-  def setCloudName(cloudName: String): H2OConf = {
-    sparkConf.set(PROP_CLOUD_NAME._1, cloudName)
+  def setExternalClusterMode(): H2OConf = {
+    sparkConf.set(PROP_BACKEND_CLUSTER_MODE._1, "external")
     self
   }
 
-  private[this] def setBackendClusterMode(backendClusterMode: String): H2OConf = {
-    sparkConf.set(PROP_BACKEND_CLUSTER_MODE._1, backendClusterMode)
+  def setClusterName(clusterName: String): H2OConf = {
+    sparkConf.set(PROP_CLUSTER_NAME._1, clusterName)
     self
   }
 
-  def setInternalClusterMode(): H2OConf = setBackendClusterMode("internal")
+  def setNThreads(numThreads: Int): H2OConf = {
+    sparkConf.set(PROP_NTHREADS._1, numThreads.toString)
+    self
+  }
+
+  def setDisableGA(disableGA: Boolean): H2OConf = {
+    sparkConf.set(PROP_DISABLE_GA._1, disableGA.toString)
+    self
+  }
+
+  def setNodeLogLevel(nodeLogLevel: String): H2OConf = {
+    sparkConf.set(PROP_CLIENT_LOG_LEVEL._1, nodeLogLevel)
+    self
+  }
+
+  def setNodeLogDir(nodeLogDir: String): H2OConf = {
+    sparkConf.set(PROP_NODE_LOG_DIR._1, nodeLogDir)
+    self
+  }
+
+  def setClientWebPort(clientWebPort: Int): H2OConf = {
+    sparkConf.set(PROP_CLIENT_WEB_PORT._1, clientWebPort.toString)
+    self
+  }
+
+  def setClientIcedDir(clientIcedDir: String): H2OConf = {
+    sparkConf.set(PROP_CLIENT_ICED_DIR._1, clientIcedDir)
+    self
+  }
+
+  def setClientCloudConnectTimeout(clientCloudConnectTimeout: Int): H2OConf = {
+    sparkConf.set(PROP_CLIENT_CLOUD_CONNECT_TIMEOUT._1, clientCloudConnectTimeout.toString)
+    self
+  }
+
+  def setClientNetworkMask(clientNetworkMask: String): H2OConf = {
+    sparkConf.set(PROP_CLIENT_NETWORK_MASK._1, clientNetworkMask)
+    self
+  }
+
+  def setClientIp(ip: String): H2OConf = {
+    sparkConf.set(PROP_CLIENT_IP._1, ip)
+    self
+  }
+
+  def setClientVerboseOutputEnabled(): H2OConf = {
+    sparkConf.set(PROP_CLIENT_VERBOSE._1, true.toString)
+    self
+  }
+
+  def setClientVerboseOutputDisabled(): H2OConf = {
+    sparkConf.set(PROP_CLIENT_VERBOSE._1, false.toString)
+    self
+  }
+
+  def setClientBasePort(clientBasePort: Int): H2OConf = {
+    sparkConf.set(PROP_CLIENT_BASE_PORT._1, clientBasePort.toString)
+    self
+  }
+
+  def setClientLogLevel(clientLogLevel: String): H2OConf = {
+    sparkConf.set(PROP_CLIENT_LOG_LEVEL._1, clientLogLevel)
+    self
+  }
+
+  def setClientLogDir(clientLogDir: String): H2OConf = {
+    sparkConf.set(PROP_CLIENT_LOG_DIR._1, clientLogDir)
+    self
+  }
+
+  def setJks(jks: String): H2OConf = {
+    sparkConf.set(PROP_JKS._1, jks)
+    self
+  }
+
+  def setJksPass(jskPass: String): H2OConf = {
+    sparkConf.set(PROP_JKS_PASS._1, jskPass)
+    self
+  }
+
+  def setHashLogin(hashLogin: String): H2OConf = {
+    sparkConf.set(PROP_HASH_LOGIN._1, hashLogin)
+    self
+  }
+
+  def setLdapLogin(ldapLogin: String): H2OConf = {
+    sparkConf.set(PROP_LDAP_LOGIN._1, ldapLogin)
+    self
+  }
+
+  def setKerberosLogin(kerberosLogin: String): H2OConf = {
+    sparkConf.set(PROP_KERBEROS_LOGIN._1, kerberosLogin)
+    self
+  }
+
+  def setLoginConf(loginConf: String): H2OConf = {
+    sparkConf.set(PROP_LOGIN_CONF._1, loginConf)
+    self
+  }
+
+  def setUserName(userName: String): H2OConf = {
+    sparkConf.set(PROP_USER_NAME._1, userName)
+    self
+  }
+
+  def setSslConf(sslConf: String): H2OConf = {
+    sparkConf.set(PROP_SSL_CONF._1, sslConf)
+    self
+  }
+
+  def setFailOnUnsupportedSparkParamEnabled(): H2OConf = {
+    sparkConf.set(PROP_FAIL_ON_UNSUPPORTED_SPARK_PARAM._1, "true")
+    self
+  }
+
+  def setFailOnUnsupportedSparkParamDisabled(): H2OConf = {
+    sparkConf.set(PROP_FAIL_ON_UNSUPPORTED_SPARK_PARAM._1, "false")
+    self
+  }
+
+  def setNumReplStartupInstances(numInstances: Int): H2OConf = {
+    sparkConf.set(PROP_REPL_INITIAL_INSTANCES_COUNT._1, numInstances.toString)
+    self
+  }
 
   def setReplDisabled(): H2OConf = {
     sparkConf.set(PROP_REPL_ENABLED._1, false.toString)
@@ -90,27 +214,28 @@ trait SharedBackendConf {
     self
   }
 
-  def setExternalClusterMode(): H2OConf = setBackendClusterMode("external")
-
-  def setClientIp(ip: String): H2OConf = {
-    sparkConf.set(PROP_CLIENT_IP._1, ip)
+  def setClusterTopologyListenerEnabled(): H2OConf = {
+    sparkConf.set(PROP_CLUSTER_TOPOLOGY_LISTENER_ENABLED._1, "true")
     self
   }
 
-  def setH2OClientLogLevel(level: String): H2OConf = {
-    sparkConf.set(PROP_CLIENT_LOG_LEVEL._1, level)
+  def setClusterTopologyListenerDisabled(): H2OConf = {
+    sparkConf.set(PROP_CLUSTER_TOPOLOGY_LISTENER_ENABLED._1, "false")
+    self
+  }
+
+  def setSparkVersionCheckEnabled(): H2OConf = {
+    sparkConf.set(PROP_SPARK_VERSION_CHECK_ENABLED._1, "true")
+    self
+  }
+
+  def setSparkVersionCheckDisabled(): H2OConf = {
+    sparkConf.set(PROP_SPARK_VERSION_CHECK_ENABLED._1, "false")
     self
   }
 }
 
 object SharedBackendConf {
-
-  /** H2O internal log level for launched remote nodes. */
-  val PROP_NODE_LOG_LEVEL = ("spark.ext.h2o.node.log.level", "INFO")
-
-  /** Location of log directory for remote nodes. */
-  val PROP_NODE_LOG_DIR = ("spark.ext.h2o.node.log.dir", None)
-
 
   /**
     * This option can be set either to "internal" or "external"
@@ -120,26 +245,8 @@ object SharedBackendConf {
     */
   val PROP_BACKEND_CLUSTER_MODE = ("spark.ext.h2o.backend.cluster.mode", "internal")
 
-  /** IP of H2O client node */
-  val PROP_CLIENT_IP = ("spark.ext.h2o.client.ip", None)
-
-  /** Print detailed messages to client stdout */
-  val PROP_CLIENT_VERBOSE = ("spark.ext.h2o.client.verbose", false)
-
-  /** Port on which H2O client publishes its API. If already occupied, the next odd port is tried and so on */
-  val PROP_CLIENT_PORT_BASE = ( "spark.ext.h2o.client.port.base", 54321 )
-
   /** Configuration property - name of H2O cloud */
-  val PROP_CLOUD_NAME = ("spark.ext.h2o.cloud.name", None)
-
-  /** H2O log level for client running in Spark driver */
-  val PROP_CLIENT_LOG_LEVEL = ("spark.ext.h2o.client.log.level", "WARN")
-
-  /** Location of log directory for the driver instance. */
-  val PROP_CLIENT_LOG_DIR = ("spark.ext.h2o.client.log.dir", defaultLogDir)
-
-  /** Subnet selector for H2O client - if the mask is specified then Spark network setup is not discussed. */
-  val PROP_CLIENT_NETWORK_MASK = ("spark.ext.h2o.client.network.mask", None)
+  val PROP_CLUSTER_NAME = ("spark.ext.h2o.cloud.name", None)
 
   /** Limit for number of threads used by H2O, default -1 means unlimited */
   val PROP_NTHREADS = ("spark.ext.h2o.nthreads", -1)
@@ -147,12 +254,39 @@ object SharedBackendConf {
   /** Disable GA tracking */
   val PROP_DISABLE_GA = ("spark.ext.h2o.disable.ga", true)
 
+  /** H2O internal log level for launched remote nodes. */
+  val PROP_NODE_LOG_LEVEL = ("spark.ext.h2o.node.log.level", "INFO")
+
+  /** Location of log directory for remote nodes. */
+  val PROP_NODE_LOG_DIR = ("spark.ext.h2o.node.log.dir", None)
+
   /** Exact client port to access web UI.
     * The value `-1` means automatic search for free port starting at `spark.ext.h2o.port.base`. */
   val PROP_CLIENT_WEB_PORT = ("spark.ext.h2o.client.web.port", -1)
 
   /** Location of iced directory for the driver instance. */
   val PROP_CLIENT_ICED_DIR = ("spark.ext.h2o.client.iced.dir", None)
+
+  /** Configuration property - timeout for cloud up. */
+  val PROP_CLIENT_CLOUD_CONNECT_TIMEOUT = ("spark.ext.h2o.cloud.timeout", 60*1000)
+
+  /** Subnet selector for H2O client - if the mask is specified then Spark network setup is not discussed. */
+  val PROP_CLIENT_NETWORK_MASK = ("spark.ext.h2o.client.network.mask", None)
+
+  /** IP of H2O client node */
+  val PROP_CLIENT_IP = ("spark.ext.h2o.client.ip", None)
+
+  /** Print detailed messages to client stdout */
+  val PROP_CLIENT_VERBOSE = ("spark.ext.h2o.client.verbose", false)
+
+  /** Port on which H2O client publishes its API. If already occupied, the next odd port is tried and so on */
+  val PROP_CLIENT_BASE_PORT = ( "spark.ext.h2o.client.port.base", 54321 )
+
+  /** H2O log level for client running in Spark driver */
+  val PROP_CLIENT_LOG_LEVEL = ("spark.ext.h2o.client.log.level", "WARN")
+
+  /** Location of log directory for the driver instance. */
+  val PROP_CLIENT_LOG_DIR = ("spark.ext.h2o.client.log.dir", defaultLogDir)
 
   /** Path to Java KeyStore file. */
   val PROP_JKS = ("spark.ext.h2o.jks", None)
@@ -175,8 +309,14 @@ object SharedBackendConf {
   /** Override user name for cluster. */
   val PROP_USER_NAME = ("spark.ext.h2o.user.name", None)
 
+  /** Path to Java KeyStore file. */
+  val PROP_SSL_CONF = ("spark.ext.h2o.internal_security_conf", None)
+
+  /** Enable/Disable exit on unsupported Spark parameters. */
+  val PROP_FAIL_ON_UNSUPPORTED_SPARK_PARAM = ("spark.ext.h2o.fail.on.unsupported.spark.param", true)
+
   /** Number of executors started at the start of h2o services, by default 1 */
-  val PROP_SCALA_INT_DEFAULT_NUM = ("spark.ext.scala.int.default.num", 1)
+  val PROP_REPL_INITIAL_INSTANCES_COUNT = ("spark.ext.scala.int.default.num", 1)
 
   /** Enable/Disable Sparkling-Water REPL **/
   val PROP_REPL_ENABLED = ("spark.ext.h2o.repl.enabled", true)
@@ -186,12 +326,6 @@ object SharedBackendConf {
 
   /** Enable/Disable check for Spark version. */
   val PROP_SPARK_VERSION_CHECK_ENABLED = ("spark.ext.h2o.spark.version.check.enabled", true)
-
-  /** Enable/Disable exit on unsupported Spark parameters. */
-  val PROP_FAIL_ON_UNSUPPORTED_SPARK_PARAM = ("spark.ext.h2o.fail.on.unsupported.spark.param", true)
-
-  /** Path to Java KeyStore file. */
-  val PROP_SSL_CONF = ("spark.ext.h2o.internal_security_conf", None)
 
   private[spark] def defaultLogDir: String = {
     System.getProperty("user.dir") + java.io.File.separator + "h2ologs"
