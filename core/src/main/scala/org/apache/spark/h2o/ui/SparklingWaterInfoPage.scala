@@ -17,10 +17,18 @@
 
 package org.apache.spark.h2o.ui
 
-import javax.servlet.http.HttpServletRequest
+import java.io.File
+import java.nio.file.Files
+import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
-import org.apache.spark.ui.{UIUtils, WebUIPage}
+import org.apache.spark.h2o.H2OContext
+import org.apache.spark.h2o.backends.SharedBackendConf
+import org.apache.spark.ui.{UIUtils, WebUI, WebUIPage}
+import org.apache.spark.util.Utils
+import org.spark_project.jetty.server.Request
+import org.spark_project.jetty.servlet.{DefaultServlet, ServletContextHandler, ServletHolder}
 
+import scala.util.Random
 import scala.xml.Node
 
 /**
@@ -29,6 +37,7 @@ import scala.xml.Node
 case class SparklingWaterInfoPage(parent: SparklingWaterUITab) extends WebUIPage("") {
 
   private val listener = parent.listener
+  private lazy val logDir = Utils.createTempDir()
 
   private def h2oInfo(): Seq[(String, String)] = {
     val h2oBuildInfo = listener.h2oBuildInfo.get
@@ -42,9 +51,44 @@ case class SparklingWaterInfoPage(parent: SparklingWaterUITab) extends WebUIPage
     )
   }
 
+  private def zip(out: String, files: Iterable[String]){
+      import java.io.{BufferedInputStream, FileInputStream, FileOutputStream}
+      import java.util.zip.{ZipEntry, ZipOutputStream}
+
+      val zip = new ZipOutputStream(new FileOutputStream(out))
+
+      files.foreach { name =>
+        zip.putNextEntry(new ZipEntry(name))
+        val in = new BufferedInputStream(new FileInputStream(name))
+        var b = in.read()
+        while (b > -1) {
+          zip.write(b)
+          b = in.read()
+        }
+        in.close()
+        zip.closeEntry()
+      }
+      zip.close()
+  }
+
+  private def getLogFiles(logDir: File) = {
+    if (logDir.exists && logDir.isDirectory) {
+      logDir.listFiles.filter{f => f.isFile && f.getName.endsWith(".log")}
+        .map(_.getAbsolutePath).toList
+    } else {
+      List[String]()
+    }
+  }
+
   private def flowUrl(): String = s"http://${listener.h2oCloudInfo.get.localClientIpPort}"
+  
+  lazy val  downloadLogsSuffix = s"/${Math.abs(new Random().nextLong())}/sparkling-water/logs"
 
   private def swProperties(): Seq[(String, String)] = listener.swProperties.get
+
+  private def clientLogDir(): File = {
+    new File(listener.swProperties.get.find(_._1 == SharedBackendConf.PROP_CLIENT_LOG_DIR._1).get._2)
+  }
 
   private def swInfo(): Seq[(String, String)] = {
     val cloudInfo = listener.h2oCloudInfo.get
@@ -54,6 +98,44 @@ case class SparklingWaterInfoPage(parent: SparklingWaterUITab) extends WebUIPage
     ) ++ cloudInfo.extraBackendInfo
   }
 
+
+
+  /** Create a handler for serving files from a static directory */
+  def createStaticHandler(resourceBase: String, path: String): ServletContextHandler = {
+    val contextHandler = new ServletContextHandler(){
+      override def doHandle(target: String, baseRequest: Request, request: HttpServletRequest, response: HttpServletResponse): Unit = {
+        // get log files
+        val logFiles = getLogFiles(clientLogDir())
+        import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        // copy logs to output directory
+        logFiles.foreach{f =>
+          val file = new File(f)
+          Files.copy(file.toPath, new File(logDir, file.getName).toPath, REPLACE_EXISTING)
+        }
+        // re-zip logs with refresh as the logs can contain new data
+        zip(new File(logDir, "full_logs.zip").getAbsolutePath, logFiles)
+        super.doHandle(target, baseRequest, request, response)
+      }
+    }
+    contextHandler.setInitParameter("org.eclipse.jetty.servlet.Default.gzip", "false")
+    val staticHandler = new DefaultServlet
+    val holder = new ServletHolder(staticHandler)
+    holder.setInitParameter("resourceBase", resourceBase)
+    contextHandler.setContextPath(path)
+    contextHandler.addServlet(holder, "/")
+    contextHandler
+  }
+
+
+  def attachHandler(): Unit = {
+    val clazz = classOf[WebUI]
+    val method = clazz.getDeclaredMethod("attachHandler", classOf[ServletContextHandler])
+    method.invoke(parent.parent, createStaticHandler(logDir.getAbsolutePath, downloadLogsSuffix))
+  }
+
+  attachHandler()
+
+
   override def render(request: HttpServletRequest): Seq[Node] = {
     val helpText =
       """
@@ -61,7 +143,6 @@ case class SparklingWaterInfoPage(parent: SparklingWaterUITab) extends WebUIPage
       """.stripMargin
 
     val content = if (listener.uiReady) {
-
       val swInfoTable = UIUtils.listingTable(
         propertyHeader, h2oRow, swInfo(), fixedWidth = true)
       val swPropertiesTable = UIUtils.listingTable(
@@ -89,6 +170,11 @@ case class SparklingWaterInfoPage(parent: SparklingWaterUITab) extends WebUIPage
           <li>
             <a href={flowUrl()}>
               <strong>Flow UI</strong>
+            </a>
+          </li>
+          <li>
+            <a href={downloadLogsSuffix}>
+              <strong>H2O Logs</strong>
             </a>
           </li>
         </ul>

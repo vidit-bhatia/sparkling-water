@@ -27,7 +27,8 @@ import org.apache.spark.ui.SparkUI
   */
 case class SparkListenerH2OStart(h2oCloudInfo: H2OCloudInfo,
                                  h2oBuildInfo: H2OBuildInfo,
-                                 swProperties: Array[(String, String)]) extends SparkListenerEvent
+                                 swProperties: Array[(String, String)],
+                                 appId: String) extends SparkListenerEvent
 
 
 /**
@@ -56,13 +57,15 @@ class SparklingWaterListener(conf: SparkConf) extends SparkListener with Logging
   var swProperties: Option[Array[(String, String)]] = None
   var cloudHealthy = true
   var lastTimeHeadFromH2O: Long = 0
+  var appId: String = _
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
-    case SparkListenerH2OStart(h2oCloudInfo, h2oBuildInfo, swProperties) => {
+    case SparkListenerH2OStart(h2oCloudInfo, h2oBuildInfo, swProperties, appId) => {
       this.h2oCloudInfo = Some(h2oCloudInfo)
       this.h2oBuildInfo = Some(h2oBuildInfo)
       this.swProperties = Some(swProperties)
       cloudHealthy = h2oCloudInfo.cloudHealthy
       lastTimeHeadFromH2O = h2oCloudInfo.h2oStartTime
+      this.appId = appId
       uiReady = true
     }
     case SparkListenerH2ORuntimeUpdate(cloudHealthy, timeInMillis) => {

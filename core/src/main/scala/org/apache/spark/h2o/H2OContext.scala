@@ -20,7 +20,7 @@ package org.apache.spark.h2o
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.spark._
-import org.apache.spark.h2o.backends.SparklingBackend
+import org.apache.spark.h2o.backends.{SharedBackendConf, SparklingBackend}
 import org.apache.spark.h2o.backends.external.ExternalH2OBackend
 import org.apache.spark.h2o.backends.internal.InternalH2OBackend
 import org.apache.spark.h2o.converters._
@@ -136,12 +136,14 @@ class H2OContext private (val sparkSession: SparkSession, conf: H2OConf) extends
       H2O.START_TIME_MILLIS.get()
       )
 
+
     val swPropertiesInfo = _conf.getAll.filter(_._1.startsWith("spark.ext.h2o"))
 
     sparkSession.sparkContext.listenerBus.post(SparkListenerH2OStart(
       h2oCloudInfo,
       h2oBuildInfo,
-      swPropertiesInfo
+      swPropertiesInfo,
+      sparkContext.applicationId
     ))
   }
   /**
