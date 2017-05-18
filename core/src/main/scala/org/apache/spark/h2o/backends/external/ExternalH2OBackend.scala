@@ -69,7 +69,8 @@ class ExternalH2OBackend(val hc: H2OContext) extends SparklingBackend with Exter
       "-disown",
       "-J", "-watchdog_stop_without_client",
       "-J", "-watchdog_client_connect_timeout", "-J", conf.clientConnectionTimeout.toString,
-      "-J", "-watchdog_client_retry_timeout", "-J", conf.clientCheckRetryTimeout.toString
+      "-J", "-watchdog_client_retry_timeout", "-J", conf.clientCheckRetryTimeout.toString,
+      "-Dmapreduce.framework.name=h2o-yarn" // user our custom H2O Application Master
     )
 
     // start external H2O cluster and log the output
