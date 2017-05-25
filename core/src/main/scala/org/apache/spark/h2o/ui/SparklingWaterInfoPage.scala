@@ -81,8 +81,15 @@ case class SparklingWaterInfoPage(parent: SparklingWaterUITab) extends WebUIPage
   }
 
   private def flowUrl(): String = s"http://${listener.h2oCloudInfo.get.localClientIpPort}"
-  
-  lazy val  downloadLogsSuffix = s"/${Math.abs(new Random().nextLong())}/sparkling-water/logs"
+
+  private def isHistoryServer() = H2OContext.get().isEmpty
+  lazy val  downloadLogsSuffix = {
+    if(isHistoryServer()) {
+      s"/${Math.abs(new Random().nextLong())}/sparkling-water/logs"
+    }else{
+      "/sparkling-water/logs"
+    }
+  }
 
   private def swProperties(): Seq[(String, String)] = listener.swProperties.get
 
