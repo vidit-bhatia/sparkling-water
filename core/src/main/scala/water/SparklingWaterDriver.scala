@@ -44,7 +44,7 @@ object SparklingWaterDriver {
 
     println(hc)
 
-    spark.sparkContext.addFile("../iris_wheader.csv")
+    spark.sparkContext.addFile("iris_wheader.csv")
 
     val irisData = new H2OFrame(new File(SparkFiles.get("iris_wheader.csv")))
 
