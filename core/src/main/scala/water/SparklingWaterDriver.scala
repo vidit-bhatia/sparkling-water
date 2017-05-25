@@ -17,8 +17,11 @@
 
 package water
 
-import org.apache.spark.h2o.{H2OConf, H2OContext}
-import org.apache.spark.{SparkConf, SparkSessionUtils}
+import java.io.File
+
+import hex.svd.{SVD, SVDModel}
+import org.apache.spark.h2o.{H2OConf, H2OContext, H2OFrame}
+import org.apache.spark.{SparkConf, SparkFiles, SparkSessionUtils}
 
 /**
   * A simple wrapper to allow launching H2O itself on the
@@ -41,9 +44,27 @@ object SparklingWaterDriver {
 
     println(hc)
 
-    // Infinite wait
-    this.synchronized(while (true) {
-      wait()
-    })
+    spark.sparkContext.addFile("../iris_wheader.csv")
+
+    val irisData = new H2OFrame(new File(SparkFiles.get("iris_wheader.csv")))
+
+    val params = new SVDModel.SVDParameters()
+    params._train = irisData._key
+    params._valid = irisData._key
+    import hex.DataInfo
+    import hex.svd.SVDModel.SVDParameters
+    params._nv = 4
+    params._seed = 4
+    params._only_v = false
+    params._transform = DataInfo.TransformType.NONE
+    params._svd_method = SVDParameters.Method.GramSVD
+    params._save_v_frame = false
+    params._keep_cross_validation_fold_assignment = true
+    params._keep_cross_validation_predictions = true
+
+    val rdd = spark.sparkContext.parallelize(List(1),1)
+
+    val res = new SVD(params).trainModel().get()
+    print(res)
   }
 }
